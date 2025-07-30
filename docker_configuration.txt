@@ -1,0 +1,791 @@
+# Dockerfile - Development Environment
+# Flipper Zero Firmware Next - Containerized Development Environment
+
+# Multi-stage build for optimal image size and security
+ARG UBUNTU_VERSION=22.04
+FROM ubuntu:${UBUNTU_VERSION} AS base
+
+# Metadata
+LABEL maintainer="Flipper Zero Firmware Next Team"
+LABEL version="2.0.0"
+LABEL description="Professional development environment for Flipper Zero firmware"
+
+# Environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# Create non-root user for security
+ARG USERNAME=developer
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && apt-get update \
+    && apt-get install -y sudo \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
+#############################################################################
+# System Dependencies Stage
+#############################################################################
+
+FROM base AS system-deps
+
+# Update package lists and install essential packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build essentials
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    curl \
+    wget \
+    unzip \
+    zip \
+    tar \
+    gzip \
+    bzip2 \
+    xz-utils \
+    \
+    # Python development
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    python3-setuptools \
+    python3-wheel \
+    \
+    # Embedded development tools
+    gcc-arm-none-eabi \
+    gdb-multiarch \
+    openocd \
+    \
+    # Code quality tools
+    clang \
+    clang-format \
+    clang-tidy \
+    cppcheck \
+    valgrind \
+    lcov \
+    gcovr \
+    \
+    # Documentation tools
+    doxygen \
+    graphviz \
+    \
+    # Security tools
+    openssl \
+    libssl-dev \
+    \
+    # Development utilities
+    pkg-config \
+    autoconf \
+    automake \
+    libtool \
+    make \
+    \
+    # Serial communication
+    screen \
+    minicom \
+    \
+    # Hardware access
+    udev \
+    \
+    # Text editors and utilities
+    nano \
+    vim \
+    less \
+    tree \
+    htop \
+    procps \
+    \
+    # Debugging and analysis
+    strace \
+    ltrace \
+    lsof \
+    \
+    && rm -rf /var/lib/apt/lists/*
+
+#############################################################################
+# ARM Toolchain Stage
+#############################################################################
+
+FROM system-deps AS toolchain
+
+# Install additional ARM toolchain if needed
+ARG ARM_TOOLCHAIN_VERSION=12.2.Rel1
+ARG ARM_TOOLCHAIN_ARCH=x86_64
+
+WORKDIR /opt
+
+# Download and install ARM toolchain (backup if system package is insufficient)
+RUN if [ ! -f /usr/bin/arm-none-eabi-gcc ]; then \
+        echo "Installing ARM toolchain..." && \
+        wget -q "https://developer.arm.com/-/media/Files/downloads/gnu/${ARM_TOOLCHAIN_VERSION}/binrel/arm-gnu-toolchain-${ARM_TOOLCHAIN_VERSION}-${ARM_TOOLCHAIN_ARCH}-arm-none-eabi.tar.xz" && \
+        tar -xf arm-gnu-toolchain-*.tar.xz && \
+        rm arm-gnu-toolchain-*.tar.xz && \
+        ln -sf /opt/arm-gnu-toolchain-*/bin/* /usr/local/bin/; \
+    fi
+
+#############################################################################
+# Python Environment Stage
+#############################################################################
+
+FROM toolchain AS python-env
+
+# Upgrade pip and install Python packages globally
+RUN python3 -m pip install --upgrade pip setuptools wheel && \
+    python3 -m pip install --no-cache-dir \
+    # Code formatting
+    black \
+    isort \
+    \
+    # Linting
+    flake8 \
+    mypy \
+    pylint \
+    \
+    # Security
+    bandit \
+    safety \
+    \
+    # Testing
+    pytest \
+    pytest-cov \
+    pytest-mock \
+    pytest-xdist \
+    \
+    # Documentation
+    sphinx \
+    sphinx-rtd-theme \
+    \
+    # Pre-commit hooks
+    pre-commit \
+    \
+    # Build tools
+    scons \
+    \
+    # Serial communication
+    pyserial \
+    \
+    # Cryptography
+    cryptography \
+    \
+    # Development utilities
+    ipython \
+    jupyter \
+    \
+    # Protocol buffers
+    protobuf \
+    \
+    # JSON/YAML processing
+    pyyaml \
+    \
+    # HTTP clients
+    requests
+
+#############################################################################
+# Development Tools Stage
+#############################################################################
+
+FROM python-env AS dev-tools
+
+# Install additional development tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Advanced debugging
+    gdb-multiarch \
+    \
+    # Performance analysis
+    perf-tools-unstable \
+    \
+    # Memory analysis
+    valgrind \
+    \
+    # Static analysis
+    splint \
+    \
+    # Network tools
+    netcat-openbsd \
+    telnet \
+    \
+    # File utilities
+    file \
+    hexdump \
+    xxd \
+    \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install additional Python tools for embedded development
+RUN python3 -m pip install --no-cache-dir \
+    # Embedded specific
+    pyocd \
+    adafruit-nrfutil \
+    \
+    # Protocol analysis
+    scapy \
+    \
+    # Binary analysis
+    binwalk \
+    \
+    # Firmware analysis
+    python-magic
+
+#############################################################################
+# Security Hardening Stage
+#############################################################################
+
+FROM dev-tools AS security
+
+# Security hardening
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Security scanning
+    lynis \
+    rkhunter \
+    \
+    # Network security
+    nmap \
+    \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install security scanning tools
+RUN python3 -m pip install --no-cache-dir \
+    # Vulnerability scanning
+    semgrep \
+    \
+    # Dependency checking
+    pip-audit \
+    \
+    # Secret scanning
+    detect-secrets
+
+# Create secure directories
+RUN mkdir -p /opt/security-tools && \
+    chmod 755 /opt/security-tools
+
+# Install GitLeaks for secret scanning
+RUN wget -qO- "https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_8.18.0_linux_x64.tar.gz" | \
+    tar -xzC /usr/local/bin/ gitleaks && \
+    chmod +x /usr/local/bin/gitleaks
+
+#############################################################################
+# Final Development Image
+#############################################################################
+
+FROM security AS development
+
+# Switch to non-root user
+USER $USERNAME
+WORKDIR /home/$USERNAME
+
+# Set up user environment
+RUN echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc && \
+    echo 'export EDITOR=nano' >> ~/.bashrc && \
+    echo 'export PAGER=less' >> ~/.bashrc && \
+    echo 'alias ll="ls -la"' >> ~/.bashrc && \
+    echo 'alias la="ls -A"' >> ~/.bashrc && \
+    echo 'alias l="ls -CF"' >> ~/.bashrc
+
+# Create workspace directory
+RUN mkdir -p /home/$USERNAME/workspace
+
+# Expose common ports
+EXPOSE 8080 3333 4444
+
+# Set working directory for development
+WORKDIR /home/$USERNAME/workspace
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD arm-none-eabi-gcc --version && python3 --version || exit 1
+
+# Default command
+CMD ["/bin/bash"]
+
+---
+
+# docker-compose.yml - Development Environment Orchestration
+version: '3.8'
+
+services:
+  # Main development environment
+  flipper-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        USERNAME: developer
+        USER_UID: 1000
+        USER_GID: 1000
+    container_name: flipper-zero-dev
+    hostname: flipper-dev
+    
+    # Volume mounts
+    volumes:
+      # Source code
+      - .:/home/developer/workspace/flipper-zero-firmware-next:cached
+      
+      # Preserve build cache
+      - flipper-build-cache:/home/developer/workspace/flipper-zero-firmware-next/build
+      
+      # Git configuration
+      - ~/.gitconfig:/home/developer/.gitconfig:ro
+      
+      # SSH keys (for git operations)
+      - ~/.ssh:/home/developer/.ssh:ro
+      
+      # VS Code server data
+      - vscode-server:/home/developer/.vscode-server
+      
+      # Shell history
+      - bash-history:/home/developer/.bash_history
+    
+    # Environment variables
+    environment:
+      - DISPLAY=${DISPLAY}
+      - FBT_TOOLCHAIN_PATH=/usr
+      - PYTHONPATH=/home/developer/workspace/flipper-zero-firmware-next/scripts
+    
+    # Network configuration
+    network_mode: host
+    
+    # Device access for hardware debugging
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0  # Serial adapter
+      - /dev/ttyACM0:/dev/ttyACM0  # Flipper Zero
+    
+    # Privileged mode for hardware access
+    privileged: true
+    
+    # Keep container running
+    tty: true
+    stdin_open: true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+
+  # CI/CD simulation environment
+  flipper-ci:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: flipper-zero-ci
+    
+    volumes:
+      - .:/workspace:ro
+    
+    working_dir: /workspace
+    
+    environment:
+      - CI=true
+      - FBT_NO_SYNC=1
+    
+    command: >
+      bash -c "
+        ./fbt lint &&
+        ./fbt test &&
+        ./fbt COMPACT=1 DEBUG=0
+      "
+    
+    profiles:
+      - ci
+
+  # Documentation building environment
+  flipper-docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: flipper-zero-docs
+    
+    volumes:
+      - .:/workspace
+      - docs-build:/workspace/docs/build
+    
+    working_dir: /workspace
+    
+    ports:
+      - "8000:8000"
+    
+    command: >
+      bash -c "
+        doxygen Doxyfile &&
+        python3 -m http.server 8000 --directory docs/build/html
+      "
+    
+    profiles:
+      - docs
+
+  # Security scanning environment
+  flipper-security:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: security
+    container_name: flipper-zero-security
+    
+    volumes:
+      - .:/workspace:ro
+      - security-reports:/reports
+    
+    working_dir: /workspace
+    
+    environment:
+      - SEMGREP_RULES=p/security-audit,p/secrets,p/owasp-top-ten
+    
+    command: >
+      bash -c "
+        echo 'Running security scans...' &&
+        semgrep --config=auto --output=/reports/semgrep.json --json . &&
+        bandit -r . -f json -o /reports/bandit.json &&
+        safety check --json --output /reports/safety.json &&
+        gitleaks detect --report-path=/reports/gitleaks.json --report-format=json . &&
+        echo 'Security scans completed. Reports available in /reports/'
+      "
+    
+    profiles:
+      - security
+
+# Named volumes for persistence
+volumes:
+  flipper-build-cache:
+    driver: local
+  vscode-server:
+    driver: local
+  bash-history:
+    driver: local
+  docs-build:
+    driver: local
+  security-reports:
+    driver: local
+
+# Networks
+networks:
+  default:
+    driver: bridge
+
+---
+
+# .dockerignore - Docker build context exclusions
+# Exclude unnecessary files from Docker build context
+
+# Version control
+.git/
+.gitignore
+.gitmodules
+.gitattributes
+
+# Build artifacts
+build/
+dist/
+out/
+*.o
+*.bin
+*.hex
+*.elf
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+
+# Documentation build
+docs/build/
+docs/_build/
+
+# Test results
+test-results/
+coverage/
+
+# Security reports
+bandit-report.*
+semgrep-report.*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Large files that aren't needed for build
+*.tar.gz
+*.zip
+*.tgz
+
+# Docker files (to avoid recursive copy)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+---
+
+# scripts/docker-dev.sh - Docker development helper script
+#!/bin/bash
+# Docker development environment helper script
+
+set -euo pipefail
+
+# Script configuration
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+readonly COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.yml"
+
+# Colors
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m'
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $*"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $*"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
+# Show usage
+show_usage() {
+    cat << EOF
+Docker Development Environment Helper
+
+Usage: $0 [COMMAND] [OPTIONS]
+
+Commands:
+  build       Build development container
+  start       Start development environment
+  stop        Stop development environment
+  shell       Open shell in running container
+  clean       Clean up containers and volumes
+  ci          Run CI pipeline in container
+  docs        Start documentation server
+  security    Run security scans
+  logs        Show container logs
+  status      Show container status
+
+Options:
+  -h, --help     Show this help message
+  -v, --verbose  Verbose output
+
+Examples:
+  $0 build                 # Build the development container
+  $0 start                 # Start the development environment
+  $0 shell                 # Open a shell in the running container
+  $0 ci                    # Run CI pipeline
+  $0 security              # Run security scans
+
+EOF
+}
+
+# Check if Docker is available
+check_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker is not installed or not in PATH"
+        exit 1
+    fi
+    
+    if ! command -v docker-compose >/dev/null 2>&1; then
+        log_error "Docker Compose is not installed or not in PATH"
+        exit 1
+    fi
+    
+    if ! docker info >/dev/null 2>&1; then
+        log_error "Docker daemon is not running"
+        exit 1
+    fi
+}
+
+# Build development container
+build_container() {
+    log_info "Building development container..."
+    
+    cd "${PROJECT_ROOT}"
+    docker-compose -f "${COMPOSE_FILE}" build flipper-dev
+    
+    log_success "Development container built successfully"
+}
+
+# Start development environment
+start_environment() {
+    log_info "Starting development environment..."
+    
+    cd "${PROJECT_ROOT}"
+    docker-compose -f "${COMPOSE_FILE}" up -d flipper-dev
+    
+    log_success "Development environment started"
+    log_info "Use '$0 shell' to open a shell in the container"
+}
+
+# Stop development environment
+stop_environment() {
+    log_info "Stopping development environment..."
+    
+    cd "${PROJECT_ROOT}"
+    docker-compose -f "${COMPOSE_FILE}" down
+    
+    log_success "Development environment stopped"
+}
+
+# Open shell in container
+open_shell() {
+    cd "${PROJECT_ROOT}"
+    
+    if ! docker-compose -f "${COMPOSE_FILE}" ps flipper-dev | grep -q "Up"; then
+        log_warning "Development container is not running, starting it..."
+        start_environment
+        sleep 2
+    fi
+    
+    log_info "Opening shell in development container..."
+    docker-compose -f "${COMPOSE_FILE}" exec flipper-dev bash
+}
+
+# Clean up containers and volumes
+clean_environment() {
+    log_warning "This will remove all containers and volumes. Are you sure? (y/N)"
+    read -r response
+    
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        log_info "Cleaning up Docker environment..."
+        
+        cd "${PROJECT_ROOT}"
+        docker-compose -f "${COMPOSE_FILE}" down -v --remove-orphans
+        docker system prune -f
+        
+        log_success "Docker environment cleaned"
+    else
+        log_info "Cleanup cancelled"
+    fi
+}
+
+# Run CI pipeline
+run_ci() {
+    log_info "Running CI pipeline in container..."
+    
+    cd "${PROJECT_ROOT}"
+    docker-compose -f "${COMPOSE_FILE}" --profile ci up --build flipper-ci
+    
+    log_success "CI pipeline completed"
+}
+
+# Start documentation server
+start_docs() {
+    log_info "Starting documentation server..."
+    
+    cd "${PROJECT_ROOT}"
+    docker-compose -f "${COMPOSE_FILE}" --profile docs up --build flipper-docs
+    
+    log_info "Documentation available at http://localhost:8000"
+}
+
+# Run security scans
+run_security() {
+    log_info "Running security scans..."
+    
+    cd "${PROJECT_ROOT}"
+    docker-compose -f "${COMPOSE_FILE}" --profile security up --build flipper-security
+    
+    log_success "Security scans completed"
+    log_info "Reports available in the security-reports volume"
+}
+
+# Show container logs
+show_logs() {
+    cd "${PROJECT_ROOT}"
+    docker-compose -f "${COMPOSE_FILE}" logs -f flipper-dev
+}
+
+# Show container status
+show_status() {
+    cd "${PROJECT_ROOT}"
+    docker-compose -f "${COMPOSE_FILE}" ps
+}
+
+# Main function
+main() {
+    # Check prerequisites
+    check_docker
+    
+    # Parse command line arguments
+    case "${1:-}" in
+        build)
+            build_container
+            ;;
+        start)
+            start_environment
+            ;;
+        stop)
+            stop_environment
+            ;;
+        shell)
+            open_shell
+            ;;
+        clean)
+            clean_environment
+            ;;
+        ci)
+            run_ci
+            ;;
+        docs)
+            start_docs
+            ;;
+        security)
+            run_security
+            ;;
+        logs)
+            show_logs
+            ;;
+        status)
+            show_status
+            ;;
+        -h|--help|help)
+            show_usage
+            ;;
+        "")
+            log_error "No command specified"
+            show_usage
+            exit 1
+            ;;
+        *)
+            log_error "Unknown command: $1"
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function with all arguments
+main "$@"

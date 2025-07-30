@@ -1,0 +1,603 @@
+# .github/ISSUE_TEMPLATE/01_bug_report.yml
+name: 🐛 Bug Report
+description: File a bug report to help us improve the firmware
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐛 Bug Report
+        
+        Thank you for taking the time to file a bug report! Please provide as much detail as possible to help us understand and reproduce the issue.
+        
+        **⚠️ Security Issues**: If this is a security vulnerability, please **DO NOT** create a public issue. Instead, email security@your-domain.com
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight Checklist
+      description: Please confirm you've completed these steps before submitting
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have read the troubleshooting guide
+          required: true
+        - label: I have updated to the latest firmware version
+          required: false
+        - label: This is not a security vulnerability (I would email security@your-domain.com instead)
+          required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug Summary
+      description: A clear and concise description of what the bug is
+      placeholder: Describe the problem in 1-2 sentences
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - "🔴 Critical - System crashes, data loss, security implications"
+        - "🟠 High - Major functionality broken, significant impact"
+        - "🟡 Medium - Moderate impact, workaround available"
+        - "🟢 Low - Minor issue, cosmetic problems"
+        - "🔵 Enhancement - Improvement suggestion"
+    validations:
+      required: true
+
+  - type: input
+    id: firmware_version
+    attributes:
+      label: Firmware Version
+      description: What version of the firmware are you running?
+      placeholder: "e.g., v2.1.3, latest dev build"
+    validations:
+      required: true
+
+  - type: input
+    id: hardware_version
+    attributes:
+      label: Hardware Version
+      description: What hardware version are you using?
+      placeholder: "e.g., Flipper Zero v1.0, custom board"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: What environment are you using for development/flashing?
+      options:
+        - "Windows 10/11"
+        - "macOS (Intel)"
+        - "macOS (Apple Silicon)"
+        - "Ubuntu/Debian Linux"
+        - "Other Linux Distribution"
+        - "WSL2 on Windows"
+        - "Docker Container"
+        - "GitHub Codespaces"
+        - "Other (specify in description)"
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the issue
+      placeholder: |
+        1. Navigate to...
+        2. Click on...
+        3. Enter...
+        4. Observe...
+      value: |
+        1. 
+        2. 
+        3. 
+        4. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What should happen?
+      placeholder: Describe what you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and Debug Information
+      description: Include relevant logs, error messages, or debug output
+      placeholder: Paste logs here (use ``` to format code blocks)
+      render: shell
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem
+      placeholder: |
+        - Screenshots or videos
+        - Related issues
+        - Workarounds you've tried
+        - Impact on your use case
+
+---
+
+# .github/ISSUE_TEMPLATE/02_feature_request.yml
+name: 🚀 Feature Request
+description: Suggest a new feature or enhancement for the firmware
+title: "[FEATURE] "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🚀 Feature Request
+        
+        Thank you for suggesting a new feature! We appreciate community input on how to improve the firmware.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight Checklist
+      description: Please confirm you've completed these steps
+      options:
+        - label: I have searched existing issues and discussions for similar requests
+          required: true
+        - label: I have read the project roadmap
+          required: true
+        - label: This feature aligns with the project's goals and scope
+          required: true
+
+  - type: dropdown
+    id: feature_type
+    attributes:
+      label: Feature Type
+      description: What type of feature is this?
+      options:
+        - "📱 User Interface/UX Enhancement"
+        - "🔧 Core Functionality"
+        - "🔌 Hardware Integration"
+        - "🌐 Communication/Network Feature"
+        - "🔒 Security Enhancement"
+        - "⚡ Performance Improvement"
+        - "🛠️ Developer Tools/API"
+        - "📚 Documentation"
+        - "🧪 Testing/Quality Assurance"
+        - "Other (specify in description)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - "🔴 Critical - Blocking my use case"
+        - "🟠 High - Significantly improves my workflow"
+        - "🟡 Medium - Nice to have enhancement"
+        - "🟢 Low - Minor improvement"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem_statement
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve?
+      placeholder: |
+        As a [user type], I want [functionality] so that [benefit/outcome].
+        
+        Currently, [describe the limitation or problem]...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your ideal solution
+      placeholder: |
+        I propose [detailed description of the feature]...
+        
+        This would work by:
+        1. [Step/component 1]
+        2. [Step/component 2]
+        3. [Step/component 3]
+    validations:
+      required: true
+
+  - type: textarea
+    id: user_stories
+    attributes:
+      label: User Stories/Use Cases
+      description: Provide specific use cases for this feature
+      placeholder: |
+        - As a security researcher, I want to... so that...
+        - As a developer, I want to... so that...
+        - As an end user, I want to... so that...
+
+  - type: textarea
+    id: alternatives_considered
+    attributes:
+      label: Alternatives Considered
+      description: What other solutions have you considered?
+      placeholder: |
+        I've considered:
+        1. [Alternative 1] - but this doesn't work because...
+        2. [Alternative 2] - but this has limitations...
+
+  - type: textarea
+    id: implementation_notes
+    attributes:
+      label: Implementation Considerations
+      description: Any thoughts on how this could be implemented?
+      placeholder: |
+        Technical considerations:
+        - [Consideration 1]
+        - [Consideration 2]
+        
+        Potential challenges:
+        - [Challenge 1]
+        - [Challenge 2]
+
+  - type: checkboxes
+    id: security_impact
+    attributes:
+      label: Security Impact
+      description: Does this feature have security implications?
+      options:
+        - label: This feature has no security implications
+        - label: This feature may have security implications (will need security review)
+        - label: This feature is specifically for security enhancement
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context or information
+      placeholder: |
+        - Related projects or examples
+        - Screenshots or mockups
+        - References to specifications or standards
+        - Community interest/support
+
+---
+
+# .github/ISSUE_TEMPLATE/03_performance_issue.yml
+name: ⚡ Performance Issue
+description: Report performance problems or slowdowns
+title: "[PERFORMANCE] "
+labels: ["performance", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚡ Performance Issue
+        
+        Thank you for reporting a performance issue! Detailed information helps us identify and fix performance bottlenecks.
+
+  - type: textarea
+    id: performance_issue
+    attributes:
+      label: Performance Issue Description
+      description: Describe the performance problem you're experiencing
+      placeholder: |
+        - What operation is slow?
+        - How long does it take vs. expected time?
+        - When did you first notice this issue?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: performance_area
+    attributes:
+      label: Performance Area
+      description: What area is affected?
+      options:
+        - "🚀 Boot/Startup Time"
+        - "💾 Memory Usage"
+        - "🔋 Battery Life/Power Consumption"
+        - "📱 UI Responsiveness"
+        - "🌐 Network/Communication Speed"
+        - "💿 File System Operations"
+        - "🧮 CPU Intensive Operations"
+        - "🔄 Background Tasks"
+        - "Other (specify below)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: benchmark_data
+    attributes:
+      label: Performance Measurements
+      description: Provide any performance measurements or benchmarks
+      placeholder: |
+        Current performance:
+        - Operation X takes: [time/measurement]
+        - Memory usage: [measurement]
+        - CPU usage: [measurement]
+        
+        Expected performance:
+        - Operation X should take: [time/measurement]
+        - Expected memory usage: [measurement]
+      render: text
+
+  - type: input
+    id: hardware_setup
+    attributes:
+      label: Hardware Configuration
+      description: Describe your hardware setup
+      placeholder: "Flipper Zero v1.0, microSD card, additional modules..."
+
+  - type: textarea
+    id: profiling_data
+    attributes:
+      label: Profiling Information
+      description: Include any profiling data, logs, or traces
+      placeholder: Paste profiling output, timing logs, or performance traces here
+      render: shell
+
+  - type: textarea
+    id: reproduction_scenario
+    attributes:
+      label: Reproduction Scenario
+      description: How can we reproduce this performance issue?
+      placeholder: |
+        1. Load/configure...
+        2. Run operation...
+        3. Measure...
+        4. Observe slow performance...
+
+---
+
+# .github/ISSUE_TEMPLATE/04_security_notice.yml
+name: 🔒 Security Notice
+description: Report a potential security issue (USE ONLY FOR NON-CRITICAL ISSUES)
+title: "[SECURITY] "
+labels: ["security", "needs-security-review"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ IMPORTANT SECURITY NOTICE
+        
+        **🚨 CRITICAL VULNERABILITIES**: If you've discovered a critical security vulnerability, 
+        **DO NOT** create a public issue. Instead, email us immediately at: **security@your-domain.com**
+        
+        This template is only for:
+        - Minor security improvements
+        - Security-related feature requests
+        - Public security discussions
+        - General security hardening suggestions
+
+  - type: checkboxes
+    id: security_confirmation
+    attributes:
+      label: Security Issue Confirmation
+      description: Please confirm this is appropriate for public disclosure
+      options:
+        - label: This is NOT a critical vulnerability that could compromise user security
+          required: true
+        - label: This is NOT exploitable for unauthorized access or data theft
+          required: true
+        - label: I understand that critical vulnerabilities should be reported privately to security@your-domain.com
+          required: true
+
+  - type: dropdown
+    id: security_type
+    attributes:
+      label: Security Issue Type
+      description: What type of security issue is this?
+      options:
+        - "🛡️ Security Hardening Suggestion"
+        - "🔐 Cryptography Improvement"
+        - "🔍 Security Audit Request"
+        - "📋 Security Documentation"
+        - "🏗️ Secure Development Practice"
+        - "🧪 Security Testing Enhancement"
+        - "📝 Security Policy Question"
+        - "Other Security Enhancement"
+    validations:
+      required: true
+
+  - type: textarea
+    id: security_description
+    attributes:
+      label: Security Issue Description
+      description: Describe the security concern or improvement
+      placeholder: |
+        Describe the security aspect that could be improved or the security-related feature you're suggesting.
+        
+        Focus on:
+        - What security property could be enhanced
+        - How this improves overall security posture
+        - What threat model this addresses
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current Security Behavior
+      description: How does the system currently handle this security aspect?
+      placeholder: Currently, the system...
+
+  - type: textarea
+    id: proposed_improvement
+    attributes:
+      label: Proposed Security Improvement
+      description: What security enhancement do you propose?
+      placeholder: |
+        I suggest implementing...
+        
+        This would:
+        - Improve [security aspect]
+        - Protect against [threat]
+        - Follow [security standard/best practice]
+
+  - type: textarea
+    id: threat_model
+    attributes:
+      label: Threat Model
+      description: What threats does this address?
+      placeholder: |
+        This improvement protects against:
+        - [Threat 1]: [Description]
+        - [Threat 2]: [Description]
+        
+        Risk level: [Low/Medium/High]
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Security References
+      description: Any relevant security standards, papers, or examples?
+      placeholder: |
+        - [Security Standard/Guide]: [URL]
+        - [Research Paper]: [URL]
+        - [Implementation Example]: [URL]
+
+---
+
+# .github/ISSUE_TEMPLATE/05_documentation.yml
+name: 📚 Documentation
+description: Report issues with documentation or request documentation improvements
+title: "[DOCS] "
+labels: ["documentation", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 📚 Documentation Issue
+        
+        Help us improve our documentation! Whether it's fixing errors, adding missing information, or improving clarity.
+
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation is this about?
+      options:
+        - "📖 User Guide/Manual"
+        - "💻 Developer Documentation"
+        - "🔧 API Reference"
+        - "🚀 Getting Started Guide"
+        - "🏗️ Architecture Documentation"
+        - "🔒 Security Documentation"
+        - "📝 Code Comments"
+        - "❓ FAQ"
+        - "🎯 Tutorials/Examples"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Issue Type
+      description: What kind of documentation issue is this?
+      options:
+        - "❌ Error/Inaccuracy"
+        - "❓ Missing Information"
+        - "😕 Unclear/Confusing Content"
+        - "🔗 Broken Links"
+        - "🎨 Formatting Issues"
+        - "🆕 New Documentation Request"
+        - "🔄 Update Needed"
+        - "🌍 Translation Request"
+    validations:
+      required: true
+
+  - type: input
+    id: doc_location
+    attributes:
+      label: Documentation Location
+      description: Where is this documentation located?
+      placeholder: "e.g., README.md, /docs/api/crypto.md, code comments in src/main.c"
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue_description
+    attributes:
+      label: Issue Description
+      description: Describe the documentation issue
+      placeholder: |
+        What's wrong with the current documentation?
+        - What information is missing?
+        - What's unclear or confusing?
+        - What errors did you find?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested_improvement
+    attributes:
+      label: Suggested Improvement
+      description: How should this be fixed or improved?
+      placeholder: |
+        Suggestions for improvement:
+        - Add explanation for...
+        - Clarify the section about...
+        - Fix the example code...
+        - Include diagram showing...
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context that might help
+      placeholder: |
+        - Your experience level with the project
+        - What you were trying to accomplish
+        - Screenshots of confusing sections
+        - Examples of good documentation from other projects
+
+---
+
+# .github/ISSUE_TEMPLATE/config.yml
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Security Vulnerabilities
+    url: mailto:security@your-domain.com
+    about: For critical security vulnerabilities, please email us directly instead of creating a public issue
+  - name: 💬 General Questions
+    url: https://github.com/your-username/flipper-zero-firmware-next/discussions
+    about: For general questions, use GitHub Discussions
+  - name: 📚 Documentation
+    url: https://your-domain.com/docs
+    about: Check our comprehensive documentation
+  - name: 💼 Commercial Support
+    url: https://your-domain.com/support
+    about: For commercial support and consulting services

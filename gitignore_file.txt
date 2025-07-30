@@ -1,0 +1,556 @@
+# .gitignore - Flipper Zero Firmware Next
+# Comprehensive ignore rules for embedded firmware development
+
+#############################################################################
+# Build Artifacts & Output
+#############################################################################
+
+# Build directories
+build/
+dist/
+out/
+bin/
+obj/
+target/
+
+# Compilation artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+*.bin
+*.hex
+*.elf
+*.map
+*.lst
+*.sym
+*.dump
+
+# Linker files
+*.ld.generated
+
+# Debug files
+*.pdb
+*.dSYM/
+*.dwarf
+
+# Assembly listings
+*.s
+*.S.generated
+
+#############################################################################
+# Flipper Zero Specific
+#############################################################################
+
+# Flipper build artifacts
+/build/
+/dist/
+/.scons*
+.sconsign.dblite
+compile_commands.json
+
+# Application packages
+*.fap
+*.fal
+*.tar
+*.tgz
+*.zip
+
+# Flipper assets compiled
+/assets/compiled/
+/assets/protobuf/compiled/
+
+# SDK
+sdk/
+.extapps/
+
+# Logs
+*.log
+flipper.log
+uart.log
+
+#############################################################################
+# Development Environment
+#############################################################################
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+.ENV/
+.env/
+pipenv/
+.pipfile/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+#############################################################################
+# IDEs and Editors
+#############################################################################
+
+# Visual Studio Code
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/c_cpp_properties.json
+*.code-workspace
+
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# JetBrains IDEs
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+*~
+tags
+[._]*.un~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# nano
+*.save
+*.swp
+*.swo
+
+#############################################################################
+# Operating System Files
+#############################################################################
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+#############################################################################
+# Toolchain & Dependencies
+#############################################################################
+
+# ARM GCC Toolchain
+toolchain/
+gcc-arm-none-eabi*/
+
+# OpenOCD
+openocd/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+.npm
+.eslintcache
+.node_repl_history
+*.tgz
+.yarn-integrity
+.cache/
+
+#############################################################################
+# Testing & Coverage
+#############################################################################
+
+# Test results
+test-results/
+test_results/
+junit.xml
+*.junit
+coverage.xml
+.coverage
+.coverage.*
+coverage/
+.pytest_cache/
+.tox/
+.nox/
+
+# Code coverage
+*.gcov
+*.gcno
+*.gcda
+lcov.info
+coverage.info
+htmlcov/
+
+# Valgrind
+*.valgrind
+vgcore.*
+
+# Static analysis
+cppcheck-report.*
+pvs-studio.*
+clang-static-analyzer/
+
+#############################################################################
+# Documentation
+#############################################################################
+
+# Doxygen
+docs/html/
+docs/latex/
+docs/xml/
+docs/man/
+docs/rtf/
+Doxyfile.local
+
+# Sphinx
+docs/_build/
+docs/build/
+
+# LaTeX
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+
+#############################################################################
+# Hardware & Debugging
+#############################################################################
+
+# GDB
+.gdb_history
+gdb.txt
+
+# Logic analyzer traces
+*.sal
+*.logicdata
+
+# Oscilloscope data
+*.csv
+*.wfm
+*.isf
+
+# PCB design files (temporary)
+*.000
+*.bak
+*.kicad_pcb-bak
+*.kicad_sch-bak
+*-cache.lib
+*-rescue.lib
+*.net
+*.pro
+
+#############################################################################
+# Security & Secrets
+#############################################################################
+
+# Keys and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+
+# Environment files with secrets
+.env.local
+.env.*.local
+secrets.json
+secrets.yml
+secrets.yaml
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.backup
+*.bak
+*.old
+*.orig
+*.tmp
+
+#############################################################################
+# Package Managers
+#############################################################################
+
+# Conan
+conaninfo.txt
+conanfile.txt.orig
+conanbuildinfo.*
+conan.lock
+
+# vcpkg
+vcpkg_installed/
+
+# Hunter
+_deps/
+
+#############################################################################
+# Temporary Files
+#############################################################################
+
+# Temporary directories
+tmp/
+temp/
+.tmp/
+.temp/
+
+# Lock files
+*.lock
+.lock
+
+# Swap files
+*.swp
+*.swo
+
+# Archive files (usually not source)
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.rar
+*.7z
+
+#############################################################################
+# CI/CD & Deployment
+#############################################################################
+
+# Docker
+.docker/
+Dockerfile.dev
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Cloud deployment
+.serverless/
+.vercel/
+.netlify/
+
+#############################################################################
+# Monitoring & Profiling
+#############################################################################
+
+# Performance profiling
+*.prof
+*.trace
+perf.data*
+callgrind.out.*
+massif.out.*
+cachegrind.out.*
+
+# Flame graphs
+*.svg.tmp
+
+#############################################################################
+# Custom Application Data
+#############################################################################
+
+# User applications
+applications_user/*
+!applications_user/.gitignore
+!applications_user/README.md
+
+# User assets
+assets/user/*
+!assets/user/.gitignore
+
+# User configurations
+configs/user/*
+!configs/user/.gitignore
+
+#############################################################################
+# Version Control
+#############################################################################
+
+# Git
+.git/
+.gitattributes.local
+
+# SVN
+.svn/
+
+# Mercurial
+.hg/
+.hgignore
+
+#############################################################################
+# Embedded Specific
+#############################################################################
+
+# Flash memory dumps
+*.dmp
+*.bin.dump
+
+# JTAG/SWD configuration
+*.jlink
+*.ozone
+
+# Real-time traces
+*.trace
+
+# Memory analysis
+*.mem
+
+# Bootloader artifacts
+bootloader_*.bin
+update_*.bin
+
+#############################################################################
+# Project Specific Ignores
+#############################################################################
+
+# Add project-specific ignores here
+
+# Firmware signing keys (example)
+# signing_keys/
+
+# Hardware test results
+# test_reports/
+
+# Custom board configurations
+# boards/custom/
+
+#############################################################################
+# Force Include Important Files
+#############################################################################
+
+# Ensure these files are always tracked
+!.gitignore
+!.gitkeep
+!README.md
+!LICENSE
+!CHANGELOG.md
+!CONTRIBUTING.md
+!SECURITY.md
+
+# Important configuration files
+!.clang-format
+!.clang-tidy
+!.editorconfig
+!.pre-commit-config.yaml
+
+# Build system files
+!SConstruct
+!CMakeLists.txt
+!Makefile
+!fbt
+!*.scons
+!*.cmake
+
+# Documentation templates
+!docs/templates/
+!.github/

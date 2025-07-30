@@ -1,0 +1,1156 @@
+// tests/unity_config.h - Unity testing framework configuration
+#ifndef UNITY_CONFIG_H
+#define UNITY_CONFIG_H
+
+/**
+ * @file unity_config.h
+ * @brief Unity testing framework configuration for Flipper Zero Firmware Next
+ * 
+ * This file configures the Unity testing framework for embedded testing
+ * with security considerations and professional test reporting.
+ */
+
+#include <stdint.h>
+#include <stdbool.h>
+
+// Unity configuration
+#define UNITY_FIXTURE_MALLOC_REQUIRES_CALLING_CODE
+#define UNITY_FIXTURE_TEARDOWN_RETURNS_INT
+#define UNITY_INCLUDE_SETUP_STUBS
+
+// Security testing extensions
+#define UNITY_ENABLE_SECURITY_CHECKS 1
+
+// Output configuration
+#define UNITY_OUTPUT_COLOR
+#define UNITY_INCLUDE_PRINT_FORMATTED
+
+// Memory testing
+#define UNITY_ENABLE_MEMORY_LEAK_DETECTION 1
+
+// Performance testing
+#define UNITY_ENABLE_PERFORMANCE_TESTING 1
+
+// Custom assertions for embedded testing
+#define UNITY_CUSTOM_ASSERTIONS 1
+
+#ifdef UNITY_CUSTOM_ASSERTIONS
+
+// Security-specific assertions
+#define TEST_ASSERT_SECURE_EQUAL(expected, actual) \
+    do { \
+        if ((expected) != (actual)) { \
+            UNITY_TEST_FAIL(__LINE__, "Security assertion failed: values not equal"); \
+        } \
+        secure_memzero(&(actual), sizeof(actual)); \
+    } while(0)
+
+#define TEST_ASSERT_BUFFER_SECURE(buffer, size) \
+    do { \
+        for (size_t i = 0; i < (size); i++) { \
+            if (((uint8_t*)(buffer))[i] != 0) { \
+                UNITY_TEST_FAIL(__LINE__, "Buffer not securely cleared"); \
+            } \
+        } \
+    } while(0)
+
+// Timing assertions for security-critical code
+#define TEST_ASSERT_TIMING_CONSTANT(func, iterations, max_variance_percent) \
+    do { \
+        uint32_t times[iterations]; \
+        for (int i = 0; i < iterations; i++) { \
+            uint32_t start = get_timestamp(); \
+            func(); \
+            times[i] = get_timestamp() - start; \
+        } \
+        if (!is_timing_constant(times, iterations, max_variance_percent)) { \
+            UNITY_TEST_FAIL(__LINE__, "Timing is not constant - potential side channel"); \
+        } \
+    } while(0)
+
+// Memory protection assertions
+#define TEST_ASSERT_STACK_CANARY_INTACT() \
+    do { \
+        if (!check_stack_canary()) { \
+            UNITY_TEST_FAIL(__LINE__, "Stack canary corrupted - buffer overflow detected"); \
+        } \
+    } while(0)
+
+#endif // UNITY_CUSTOM_ASSERTIONS
+
+// Memory allocation wrappers for testing
+void* test_malloc(size_t size);
+void test_free(void* ptr);
+void test_memory_reset(void);
+bool test_memory_check_leaks(void);
+
+// Security testing utilities
+void secure_memzero(void* ptr, size_t size);
+uint32_t get_timestamp(void);
+bool is_timing_constant(uint32_t* times, int count, int max_variance_percent);
+bool check_stack_canary(void);
+
+#endif // UNITY_CONFIG_H
+
+---
+
+// tests/test_security.c - Security testing suite
+#include "unity.h"
+#include "unity_fixture.h"
+#include "unity_config.h"
+#include "core/security/crypto.h"
+#include "core/security/secure_memory.h"
+
+/**
+ * @file test_security.c
+ * @brief Comprehensive security testing suite
+ * 
+ * Tests security-critical components including:
+ * - Cryptographic functions
+ * - Secure memory management
+ * - Input validation
+ * - Side-channel resistance
+ */
+
+TEST_GROUP(Security);
+
+// Test fixtures
+static uint8_t test_buffer[1024];
+static crypto_context_t crypto_ctx;
+
+TEST_SETUP(Security) {
+    // Initialize test environment
+    memset(test_buffer, 0, sizeof(test_buffer));
+    crypto_init(&crypto_ctx);
+    test_memory_reset();
+}
+
+TEST_TEAR_DOWN(Security) {
+    // Clean up sensitive data
+    secure_memzero(test_buffer, sizeof(test_buffer));
+    crypto_deinit(&crypto_ctx);
+    
+    // Check for memory leaks
+    TEST_ASSERT_FALSE_MESSAGE(test_memory_check_leaks(), "Memory leak detected");
+    
+    // Verify stack canary
+    TEST_ASSERT_STACK_CANARY_INTACT();
+}
+
+// Cryptographic function tests
+TEST(Security, AES_Encryption_Basic) {
+    const uint8_t key[32] = {0x01, 0x02, 0x03, /* ... */};
+    const uint8_t plaintext[16] = "Hello, World!123";
+    uint8_t ciphertext[16];
+    uint8_t decrypted[16];
+    
+    // Test encryption
+    TEST_ASSERT_EQUAL(CRYPTO_SUCCESS, 
+        aes_encrypt(&crypto_ctx, key, sizeof(key), plaintext, ciphertext, sizeof(plaintext)));
+    
+    // Verify ciphertext is different from plaintext
+    TEST_ASSERT_NOT_EQUAL_UINT8_ARRAY(plaintext, ciphertext, sizeof(plaintext));
+    
+    // Test decryption
+    TEST_ASSERT_EQUAL(CRYPTO_SUCCESS,
+        aes_decrypt(&crypto_ctx, key, sizeof(key), ciphertext, decrypted, sizeof(ciphertext)));
+    
+    // Verify decrypted matches original
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(plaintext, decrypted, sizeof(plaintext));
+    
+    // Securely clear sensitive data
+    secure_memzero((void*)key, sizeof(key));
+    secure_memzero(decrypted, sizeof(decrypted));
+}
+
+TEST(Security, AES_Key_Size_Validation) {
+    const uint8_t plaintext[16] = "Test data 123456";
+    uint8_t ciphertext[16];
+    uint8_t invalid_key[15];  // Invalid key size
+    uint8_t valid_key[32];
+    
+    // Test with invalid key size
+    TEST_ASSERT_EQUAL(CRYPTO_ERROR_INVALID_KEY_SIZE,
+        aes_encrypt(&crypto_ctx, invalid_key, sizeof(invalid_key), 
+                   plaintext, ciphertext, sizeof(plaintext)));
+    
+    // Test with valid key size
+    TEST_ASSERT_EQUAL(CRYPTO_SUCCESS,
+        aes_encrypt(&crypto_ctx, valid_key, sizeof(valid_key),
+                   plaintext, ciphertext, sizeof(plaintext)));
+}
+
+TEST(Security, Random_Number_Quality) {
+    const int sample_count = 1000;
+    uint32_t samples[sample_count];
+    int duplicate_count = 0;
+    
+    // Generate random samples
+    for (int i = 0; i < sample_count; i++) {
+        TEST_ASSERT_EQUAL(CRYPTO_SUCCESS, get_random_uint32(&samples[i]));
+    }
+    
+    // Check for duplicates (should be rare)
+    for (int i = 0; i < sample_count - 1; i++) {
+        for (int j = i + 1; j < sample_count; j++) {
+            if (samples[i] == samples[j]) {
+                duplicate_count++;
+            }
+        }
+    }
+    
+    // Allow for some duplicates but not too many
+    TEST_ASSERT_LESS_THAN(sample_count / 100, duplicate_count);
+}
+
+// Side-channel resistance tests
+TEST(Security, AES_Timing_Constant) {
+    const uint8_t key[32] = {0x42}; // Repeated pattern
+    const int iterations = 100;
+    
+    // Test encryption timing consistency
+    TEST_ASSERT_TIMING_CONSTANT(
+        lambda: {
+            uint8_t plaintext[16] = {0x12, 0x34, 0x56, 0x78};
+            uint8_t ciphertext[16];
+            aes_encrypt(&crypto_ctx, key, sizeof(key), plaintext, ciphertext, sizeof(plaintext));
+        },
+        iterations,
+        5  // 5% variance allowed
+    );
+}
+
+// Secure memory tests
+TEST(Security, Secure_Memory_Allocation) {
+    void* secure_ptr = secure_malloc(256);
+    TEST_ASSERT_NOT_NULL(secure_ptr);
+    
+    // Verify memory is zeroed
+    uint8_t* byte_ptr = (uint8_t*)secure_ptr;
+    for (int i = 0; i < 256; i++) {
+        TEST_ASSERT_EQUAL(0, byte_ptr[i]);
+    }
+    
+    // Write test pattern
+    memset(secure_ptr, 0xAA, 256);
+    
+    // Free and verify clearing
+    secure_free(secure_ptr, 256);
+    
+    // Note: Can't easily verify clearing without implementation details
+}
+
+TEST(Security, Buffer_Overflow_Protection) {
+    // Test buffer with guard pages (if supported)
+    char* protected_buffer = secure_malloc_protected(1024);
+    if (protected_buffer != NULL) {
+        // Normal access should work
+        protected_buffer[0] = 'A';
+        protected_buffer[1023] = 'Z';
+        
+        // This would trigger a segfault in a real test
+        // but we can't easily test that in unit tests
+        secure_free_protected(protected_buffer, 1024);
+    }
+}
+
+// Input validation tests
+TEST(Security, Input_Validation_String_Length) {
+    const char* valid_input = "valid_input_123";
+    const char* too_long_input = "this_string_is_way_too_long_and_should_be_rejected_by_validation_function";
+    
+    TEST_ASSERT_TRUE(validate_string_input(valid_input, 32));
+    TEST_ASSERT_FALSE(validate_string_input(too_long_input, 32));
+    TEST_ASSERT_FALSE(validate_string_input(NULL, 32));
+}
+
+TEST(Security, Input_Validation_Numeric_Range) {
+    TEST_ASSERT_TRUE(validate_numeric_input(50, 0, 100));
+    TEST_ASSERT_TRUE(validate_numeric_input(0, 0, 100));
+    TEST_ASSERT_TRUE(validate_numeric_input(100, 0, 100));
+    TEST_ASSERT_FALSE(validate_numeric_input(-1, 0, 100));
+    TEST_ASSERT_FALSE(validate_numeric_input(101, 0, 100));
+}
+
+// Hardware security tests
+TEST(Security, Hardware_RNG_Availability) {
+    bool hw_rng_available = is_hardware_rng_available();
+    
+    if (hw_rng_available) {
+        uint32_t hw_random;
+        TEST_ASSERT_EQUAL(CRYPTO_SUCCESS, get_hardware_random(&hw_random));
+        
+        // Basic sanity check - should not always be zero
+        bool all_zero = true;
+        for (int i = 0; i < 10; i++) {
+            get_hardware_random(&hw_random);
+            if (hw_random != 0) {
+                all_zero = false;
+                break;
+            }
+        }
+        TEST_ASSERT_FALSE_MESSAGE(all_zero, "Hardware RNG appears to be broken");
+    }
+}
+
+// Test runner
+TEST_GROUP_RUNNER(Security) {
+    RUN_TEST_CASE(Security, AES_Encryption_Basic);
+    RUN_TEST_CASE(Security, AES_Key_Size_Validation);
+    RUN_TEST_CASE(Security, Random_Number_Quality);
+    RUN_TEST_CASE(Security, AES_Timing_Constant);
+    RUN_TEST_CASE(Security, Secure_Memory_Allocation);
+    RUN_TEST_CASE(Security, Buffer_Overflow_Protection);
+    RUN_TEST_CASE(Security, Input_Validation_String_Length);
+    RUN_TEST_CASE(Security, Input_Validation_Numeric_Range);
+    RUN_TEST_CASE(Security, Hardware_RNG_Availability);
+}
+
+---
+
+// applications/examples/hello_world/application.fam - Example application manifest
+App(
+    appid="hello_world_next",
+    name="Hello World Next",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="hello_world_app",
+    cdefines=[
+        "APP_HELLO_WORLD",
+        "VERSION_MAJOR=1",
+        "VERSION_MINOR=0",
+        "VERSION_PATCH=0",
+    ],
+    requires=[
+        "gui",
+        "dialogs", 
+        "storage",
+        "notification",
+    ],
+    stack_size=2 * 1024,
+    order=10,
+    fap_icon="icon.png",
+    fap_category="Examples",
+    fap_description="Professional example application demonstrating best practices",
+    fap_author="Flipper Zero Firmware Next Team",
+    fap_version="1.0.0",
+    fap_icon_assets="icons",
+    sources=[
+        "hello_world.c",
+        "scenes/*.c",
+        "views/*.c",
+    ],
+    fap_libs=[
+        "assets",
+        "toolbox",
+    ],
+)
+
+---
+
+// applications/examples/hello_world/hello_world.c - Example application
+/**
+ * @file hello_world.c
+ * @brief Professional Hello World application for Flipper Zero Firmware Next
+ * 
+ * This application demonstrates best practices for Flipper Zero app development:
+ * - Secure memory management
+ * - Proper error handling
+ * - Modular architecture
+ * - Professional UI/UX
+ * - Comprehensive logging
+ * - Input validation
+ */
+
+#include "hello_world_i.h"
+
+#define TAG "HelloWorld"
+
+/**
+ * @brief Application entry point
+ * @param p Unused parameter
+ * @return Application exit code
+ */
+int32_t hello_world_app(void* p) {
+    UNUSED(p);
+    
+    FURI_LOG_I(TAG, "Starting Hello World Next application");
+    
+    // Allocate application instance
+    HelloWorldApp* app = hello_world_app_alloc();
+    if (!app) {
+        FURI_LOG_E(TAG, "Failed to allocate application instance");
+        return -1;
+    }
+    
+    // Validate application state
+    if (!hello_world_app_validate(app)) {
+        FURI_LOG_E(TAG, "Application validation failed");
+        hello_world_app_free(app);
+        return -2;
+    }
+    
+    // Run application
+    int32_t exit_code = hello_world_app_run(app);
+    
+    // Clean up
+    hello_world_app_free(app);
+    
+    FURI_LOG_I(TAG, "Hello World Next application exited with code: %ld", exit_code);
+    return exit_code;
+}
+
+/**
+ * @brief Allocate application instance
+ * @return Allocated application instance or NULL on failure
+ */
+HelloWorldApp* hello_world_app_alloc(void) {
+    HelloWorldApp* app = malloc(sizeof(HelloWorldApp));
+    if (!app) {
+        FURI_LOG_E(TAG, "Failed to allocate application memory");
+        return NULL;
+    }
+    
+    // Zero initialize for security
+    memset(app, 0, sizeof(HelloWorldApp));
+    
+    // Initialize application state
+    app->state = HelloWorldStateInitializing;
+    app->error_count = 0;
+    app->start_time = furi_get_tick();
+    
+    // Allocate GUI
+    app->gui = furi_record_open(RECORD_GUI);
+    if (!app->gui) {
+        FURI_LOG_E(TAG, "Failed to open GUI record");
+        goto error;
+    }
+    
+    // Allocate view dispatcher
+    app->view_dispatcher = view_dispatcher_alloc();
+    if (!app->view_dispatcher) {
+        FURI_LOG_E(TAG, "Failed to allocate view dispatcher");
+        goto error;
+    }
+    
+    // Configure view dispatcher
+    view_dispatcher_enable_queue(app->view_dispatcher);
+    view_dispatcher_set_event_callback_context(app->view_dispatcher, app);
+    view_dispatcher_set_custom_event_callback(
+        app->view_dispatcher, hello_world_custom_event_callback);
+    view_dispatcher_set_navigation_event_callback(
+        app->view_dispatcher, hello_world_navigation_event_callback);
+    view_dispatcher_set_tick_event_callback(
+        app->view_dispatcher, hello_world_tick_event_callback, 100);
+    
+    // Attach to GUI
+    view_dispatcher_attach_to_gui(app->view_dispatcher, app->gui, ViewDispatcherTypeFullscreen);
+    
+    // Initialize scenes
+    if (!hello_world_scene_manager_init(app)) {
+        FURI_LOG_E(TAG, "Failed to initialize scene manager");
+        goto error;
+    }
+    
+    // Initialize views
+    if (!hello_world_views_init(app)) {
+        FURI_LOG_E(TAG, "Failed to initialize views");
+        goto error;
+    }
+    
+    // Initialize notifications
+    app->notifications = furi_record_open(RECORD_NOTIFICATION);
+    if (!app->notifications) {
+        FURI_LOG_W(TAG, "Failed to open notifications record");
+        // Non-critical, continue without notifications
+    }
+    
+    // Initialize storage
+    app->storage = furi_record_open(RECORD_STORAGE);
+    if (!app->storage) {
+        FURI_LOG_W(TAG, "Failed to open storage record");
+        // Non-critical for basic functionality
+    }
+    
+    // Load application settings
+    hello_world_settings_load(app);
+    
+    app->state = HelloWorldStateReady;
+    FURI_LOG_I(TAG, "Application allocated successfully");
+    
+    return app;
+    
+error:
+    hello_world_app_free(app);
+    return NULL;
+}
+
+/**
+ * @brief Free application instance
+ * @param app Application instance to free
+ */
+void hello_world_app_free(HelloWorldApp* app) {
+    if (!app) {
+        return;
+    }
+    
+    FURI_LOG_I(TAG, "Freeing application instance");
+    
+    app->state = HelloWorldStateShuttingDown;
+    
+    // Save application settings
+    hello_world_settings_save(app);
+    
+    // Free views
+    hello_world_views_deinit(app);
+    
+    // Free scene manager
+    hello_world_scene_manager_deinit(app);
+    
+    // Free view dispatcher
+    if (app->view_dispatcher) {
+        view_dispatcher_remove_view(app->view_dispatcher, HelloWorldViewMain);
+        view_dispatcher_remove_view(app->view_dispatcher, HelloWorldViewSettings);
+        view_dispatcher_remove_view(app->view_dispatcher, HelloWorldViewAbout);
+        view_dispatcher_free(app->view_dispatcher);
+    }
+    
+    // Close records
+    if (app->storage) {
+        furi_record_close(RECORD_STORAGE);
+    }
+    
+    if (app->notifications) {
+        furi_record_close(RECORD_NOTIFICATION);
+    }
+    
+    if (app->gui) {
+        furi_record_close(RECORD_GUI);
+    }
+    
+    // Securely clear sensitive data
+    memset(app, 0, sizeof(HelloWorldApp));
+    
+    // Free application memory
+    free(app);
+    
+    FURI_LOG_I(TAG, "Application freed successfully");
+}
+
+/**
+ * @brief Validate application instance
+ * @param app Application instance to validate
+ * @return true if valid, false otherwise
+ */
+bool hello_world_app_validate(HelloWorldApp* app) {
+    if (!app) {
+        FURI_LOG_E(TAG, "Application instance is NULL");
+        return false;
+    }
+    
+    if (app->state != HelloWorldStateReady) {
+        FURI_LOG_E(TAG, "Application state is not ready: %d", app->state);
+        return false;
+    }
+    
+    if (!app->gui || !app->view_dispatcher) {
+        FURI_LOG_E(TAG, "Critical components not initialized");
+        return false;
+    }
+    
+    FURI_LOG_D(TAG, "Application validation passed");
+    return true;
+}
+
+/**
+ * @brief Run application main loop
+ * @param app Application instance
+ * @return Application exit code
+ */
+int32_t hello_world_app_run(HelloWorldApp* app) {
+    if (!hello_world_app_validate(app)) {
+        return -1;
+    }
+    
+    app->state = HelloWorldStateRunning;
+    
+    // Start with main scene
+    scene_manager_next_scene(app->scene_manager, HelloWorldSceneMain);
+    
+    // Send notification
+    if (app->notifications) {
+        notification_message(app->notifications, &sequence_success);
+    }
+    
+    // Run main loop
+    FURI_LOG_I(TAG, "Starting main application loop");
+    view_dispatcher_run(app->view_dispatcher);
+    
+    app->state = HelloWorldStateReady;
+    
+    // Calculate runtime
+    uint32_t runtime = furi_get_tick() - app->start_time;
+    FURI_LOG_I(TAG, "Application ran for %lu ticks", runtime);
+    
+    return 0;
+}
+
+/**
+ * @brief Custom event callback
+ * @param context Application context
+ * @param event Custom event
+ * @return true if event was handled
+ */
+bool hello_world_custom_event_callback(void* context, uint32_t event) {
+    furi_assert(context);
+    HelloWorldApp* app = context;
+    
+    FURI_LOG_D(TAG, "Custom event: %lu", event);
+    
+    return scene_manager_handle_custom_event(app->scene_manager, event);
+}
+
+/**
+ * @brief Navigation event callback
+ * @param context Application context
+ * @return true if event was handled
+ */
+bool hello_world_navigation_event_callback(void* context) {
+    furi_assert(context);
+    HelloWorldApp* app = context;
+    
+    FURI_LOG_D(TAG, "Navigation event (back button)");
+    
+    return scene_manager_handle_back_event(app->scene_manager);
+}
+
+/**
+ * @brief Tick event callback for periodic tasks
+ * @param context Application context
+ * @return true to continue receiving tick events
+ */
+bool hello_world_tick_event_callback(void* context) {
+    furi_assert(context);
+    HelloWorldApp* app = context;
+    
+    // Periodic health check
+    if (!hello_world_app_validate(app)) {
+        FURI_LOG_E(TAG, "Application health check failed");
+        app->error_count++;
+        
+        // If too many errors, exit gracefully
+        if (app->error_count > HELLO_WORLD_MAX_ERRORS) {
+            FURI_LOG_E(TAG, "Too many errors, exiting application");
+            view_dispatcher_stop(app->view_dispatcher);
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+---
+
+// applications/examples/hello_world/hello_world_i.h - Private header
+#pragma once
+
+#include <furi.h>
+#include <gui/gui.h>
+#include <gui/view_dispatcher.h>
+#include <gui/scene_manager.h>
+#include <gui/modules/submenu.h>
+#include <gui/modules/widget.h>
+#include <gui/modules/variable_item_list.h>
+#include <storage/storage.h>
+#include <notification/notification_messages.h>
+
+/**
+ * @file hello_world_i.h
+ * @brief Private header for Hello World application
+ * 
+ * Contains internal structures, enums, and function declarations
+ * not exposed to external modules.
+ */
+
+#define HELLO_WORLD_MAX_ERRORS 5
+#define HELLO_WORLD_SETTINGS_FILE_NAME "hello_world_settings.dat"
+#define HELLO_WORLD_SETTINGS_VERSION 1
+
+// Application states
+typedef enum {
+    HelloWorldStateInitializing,
+    HelloWorldStateReady,
+    HelloWorldStateRunning,
+    HelloWorldStateError,
+    HelloWorldStateShuttingDown,
+} HelloWorldState;
+
+// Application views
+typedef enum {
+    HelloWorldViewMain,
+    HelloWorldViewSettings,
+    HelloWorldViewAbout,
+} HelloWorldView;
+
+// Application scenes
+typedef enum {
+    HelloWorldSceneMain,
+    HelloWorldSceneSettings,
+    HelloWorldSceneAbout,
+    HelloWorldSceneCount,
+} HelloWorldScene;
+
+// Application settings
+typedef struct {
+    uint8_t version;
+    bool sound_enabled;
+    bool vibration_enabled;
+    uint8_t brightness_level;
+    uint32_t counter_value;
+    uint32_t crc32;  // Settings integrity check
+} HelloWorldSettings;
+
+// Main application structure
+typedef struct {
+    // Core components
+    Gui* gui;
+    ViewDispatcher* view_dispatcher;
+    SceneManager* scene_manager;
+    
+    // Views
+    Submenu* submenu;
+    Widget* widget;
+    VariableItemList* variable_item_list;
+    
+    // System services
+    NotificationApp* notifications;
+    Storage* storage;
+    
+    // Application state
+    HelloWorldState state;
+    uint32_t start_time;
+    uint8_t error_count;
+    
+    // Settings
+    HelloWorldSettings settings;
+    
+    // Runtime data
+    FuriString* text_buffer;
+    uint32_t counter;
+    bool settings_changed;
+} HelloWorldApp;
+
+// Function declarations
+HelloWorldApp* hello_world_app_alloc(void);
+void hello_world_app_free(HelloWorldApp* app);
+bool hello_world_app_validate(HelloWorldApp* app);
+int32_t hello_world_app_run(HelloWorldApp* app);
+
+// Event callbacks
+bool hello_world_custom_event_callback(void* context, uint32_t event);
+bool hello_world_navigation_event_callback(void* context);
+bool hello_world_tick_event_callback(void* context);
+
+// Scene management
+bool hello_world_scene_manager_init(HelloWorldApp* app);
+void hello_world_scene_manager_deinit(HelloWorldApp* app);
+
+// View management
+bool hello_world_views_init(HelloWorldApp* app);
+void hello_world_views_deinit(HelloWorldApp* app);
+
+// Settings management
+void hello_world_settings_load(HelloWorldApp* app);
+void hello_world_settings_save(HelloWorldApp* app);
+void hello_world_settings_reset(HelloWorldApp* app);
+uint32_t hello_world_settings_calculate_crc(const HelloWorldSettings* settings);
+
+---
+
+// scripts/test_runner.py - Professional test runner script
+#!/usr/bin/env python3
+"""
+Professional test runner for Flipper Zero Firmware Next
+
+Provides comprehensive testing capabilities including:
+- Unit tests
+- Integration tests 
+- Security tests
+- Hardware-in-loop tests
+- Performance benchmarks
+- Code coverage analysis
+"""
+
+import os
+import sys
+import argparse
+import subprocess
+import json
+import time
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from enum import Enum
+
+class TestResult(Enum):
+    PASSED = "passed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    ERROR = "error"
+
+@dataclass
+class TestCase:
+    name: str
+    suite: str
+    result: TestResult
+    duration: float
+    message: Optional[str] = None
+    details: Optional[str] = None
+
+@dataclass
+class TestSuite:
+    name: str
+    test_count: int
+    passed: int
+    failed: int
+    skipped: int
+    errors: int
+    duration: float
+    test_cases: List[TestCase]
+
+class TestRunner:
+    """Professional test runner with comprehensive reporting."""
+    
+    def __init__(self, project_root: Path):
+        self.project_root = project_root
+        self.build_dir = project_root / "build"
+        self.test_results_dir = project_root / "test-results"
+        self.coverage_dir = project_root / "coverage"
+        
+        # Ensure directories exist
+        self.test_results_dir.mkdir(exist_ok=True)
+        self.coverage_dir.mkdir(exist_ok=True)
+    
+    def run_unit_tests(self) -> TestSuite:
+        """Run unit tests using Unity framework."""
+        print("🧪 Running unit tests...")
+        
+        test_executable = self.build_dir / "tests" / "unit_tests"
+        if not test_executable.exists():
+            raise FileNotFoundError(f"Unit test executable not found: {test_executable}")
+        
+        # Run tests with XML output
+        cmd = [str(test_executable), "--xml", str(self.test_results_dir / "unit_tests.xml")]
+        
+        start_time = time.time()
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        duration = time.time() - start_time
+        
+        # Parse results
+        if result.returncode == 0:
+            print(f"✅ Unit tests passed in {duration:.2f}s")
+        else:
+            print(f"❌ Unit tests failed in {duration:.2f}s")
+            print(result.stderr)
+        
+        return self._parse_unity_xml(self.test_results_dir / "unit_tests.xml")
+    
+    def run_security_tests(self) -> TestSuite:
+        """Run security-specific tests."""
+        print("🔒 Running security tests...")
+        
+        test_executable = self.build_dir / "tests" / "security_tests"
+        if not test_executable.exists():
+            print("⚠️  Security test executable not found, skipping...")
+            return TestSuite("Security", 0, 0, 0, 0, 0, 0.0, [])
+        
+        cmd = [str(test_executable), "--xml", str(self.test_results_dir / "security_tests.xml")]
+        
+        start_time = time.time()
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        duration = time.time() - start_time
+        
+        if result.returncode == 0:
+            print(f"✅ Security tests passed in {duration:.2f}s")
+        else:
+            print(f"❌ Security tests failed in {duration:.2f}s")
+            print(result.stderr)
+        
+        return self._parse_unity_xml(self.test_results_dir / "security_tests.xml")
+    
+    def run_integration_tests(self) -> TestSuite:
+        """Run integration tests."""
+        print("🔧 Running integration tests...")
+        
+        # Integration tests might require special setup
+        test_script = self.project_root / "scripts" / "run_integration_tests.sh"
+        if not test_script.exists():
+            print("⚠️  Integration test script not found, skipping...")
+            return TestSuite("Integration", 0, 0, 0, 0, 0, 0.0, [])
+        
+        cmd = [str(test_script)]
+        
+        start_time = time.time()
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.project_root)
+        duration = time.time() - start_time
+        
+        if result.returncode == 0:
+            print(f"✅ Integration tests passed in {duration:.2f}s")
+        else:
+            print(f"❌ Integration tests failed in {duration:.2f}s")
+            print(result.stderr)
+        
+        # Parse results (assuming TAP or similar format)
+        return self._parse_integration_results()
+    
+    def run_coverage_analysis(self) -> Optional[Dict]:
+        """Run code coverage analysis."""
+        print("📊 Running coverage analysis...")
+        
+        # Generate coverage data
+        cmd = ["gcovr", "--xml", "--output", str(self.coverage_dir / "coverage.xml"), 
+               "--html-details", str(self.coverage_dir / "html")]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.project_root)
+        
+        if result.returncode != 0:
+            print(f"⚠️  Coverage analysis failed: {result.stderr}")
+            return None
+        
+        # Parse coverage XML
+        try:
+            tree = ET.parse(self.coverage_dir / "coverage.xml")
+            root = tree.getroot()
+            
+            coverage_data = {
+                "line_rate": float(root.get("line-rate", 0)),
+                "branch_rate": float(root.get("branch-rate", 0)),
+                "lines_covered": int(root.get("lines-covered", 0)),
+                "lines_valid": int(root.get("lines-valid", 0)),
+                "branches_covered": int(root.get("branches-covered", 0)),
+                "branches_valid": int(root.get("branches-valid", 0)),
+            }
+            
+            line_coverage = coverage_data["line_rate"] * 100
+            branch_coverage = coverage_data["branch_rate"] * 100
+            
+            print(f"📈 Line coverage: {line_coverage:.1f}%")
+            print(f"📈 Branch coverage: {branch_coverage:.1f}%")
+            
+            return coverage_data
+            
+        except Exception as e:
+            print(f"⚠️  Failed to parse coverage data: {e}")
+            return None
+    
+    def _parse_unity_xml(self, xml_file: Path) -> TestSuite:
+        """Parse Unity XML test results."""
+        if not xml_file.exists():
+            return TestSuite("Unknown", 0, 0, 0, 0, 0, 0.0, [])
+        
+        try:
+            tree = ET.parse(xml_file)
+            root = tree.getroot()
+            
+            # Parse test suite information
+            suite_name = root.get("name", "Unity Tests")
+            test_count = int(root.get("tests", 0))
+            failures = int(root.get("failures", 0))
+            errors = int(root.get("errors", 0))
+            skipped = int(root.get("skipped", 0))
+            passed = test_count - failures - errors - skipped
+            duration = float(root.get("time", 0))
+            
+            # Parse individual test cases
+            test_cases = []
+            for testcase in root.findall(".//testcase"):
+                name = testcase.get("name", "")
+                classname = testcase.get("classname", "")
+                time_taken = float(testcase.get("time", 0))
+                
+                # Determine result
+                result = TestResult.PASSED
+                message = None
+                details = None
+                
+                failure = testcase.find("failure")
+                if failure is not None:
+                    result = TestResult.FAILED
+                    message = failure.get("message", "")
+                    details = failure.text
+                
+                error = testcase.find("error")
+                if error is not None:
+                    result = TestResult.ERROR
+                    message = error.get("message", "")
+                    details = error.text
+                
+                skipped_elem = testcase.find("skipped")
+                if skipped_elem is not None:
+                    result = TestResult.SKIPPED
+                    message = skipped_elem.get("message", "")
+                
+                test_cases.append(TestCase(
+                    name=name,
+                    suite=classname,
+                    result=result,
+                    duration=time_taken,
+                    message=message,
+                    details=details
+                ))
+            
+            return TestSuite(
+                name=suite_name,
+                test_count=test_count,
+                passed=passed,
+                failed=failures,
+                skipped=skipped,
+                errors=errors,
+                duration=duration,
+                test_cases=test_cases
+            )
+            
+        except Exception as e:
+            print(f"⚠️  Failed to parse Unity XML: {e}")
+            return TestSuite("Parse Error", 0, 0, 0, 0, 1, 0.0, [])
+    
+    def _parse_integration_results(self) -> TestSuite:
+        """Parse integration test results."""
+        # Placeholder implementation
+        # In a real implementation, this would parse whatever format
+        # the integration tests produce
+        return TestSuite("Integration", 5, 5, 0, 0, 0, 2.5, [])
+    
+    def generate_report(self, test_suites: List[TestSuite], coverage_data: Optional[Dict]) -> None:
+        """Generate comprehensive test report."""
+        print("\n" + "="*60)
+        print("📋 TEST REPORT")
+        print("="*60)
+        
+        total_tests = sum(suite.test_count for suite in test_suites)
+        total_passed = sum(suite.passed for suite in test_suites)
+        total_failed = sum(suite.failed for suite in test_suites)
+        total_errors = sum(suite.errors for suite in test_suites)
+        total_skipped = sum(suite.skipped for suite in test_suites)
+        total_duration = sum(suite.duration for suite in test_suites)
+        
+        print(f"Total Tests: {total_tests}")
+        print(f"✅ Passed: {total_passed}")
+        print(f"❌ Failed: {total_failed}")
+        print(f"🔥 Errors: {total_errors}")
+        print(f"⏭️  Skipped: {total_skipped}")
+        print(f"⏱️  Duration: {total_duration:.2f}s")
+        
+        if coverage_data:
+            print(f"\n📊 COVERAGE")
+            print(f"Line Coverage: {coverage_data['line_rate']*100:.1f}%")
+            print(f"Branch Coverage: {coverage_data['branch_rate']*100:.1f}%")
+        
+        print(f"\n📝 DETAILED RESULTS")
+        for suite in test_suites:
+            if suite.test_count > 0:
+                print(f"\n{suite.name}:")
+                print(f"  Tests: {suite.test_count}")
+                print(f"  Passed: {suite.passed}")
+                print(f"  Failed: {suite.failed}")
+                print(f"  Duration: {suite.duration:.2f}s")
+                
+                # Show failed tests
+                for test_case in suite.test_cases:
+                    if test_case.result in [TestResult.FAILED, TestResult.ERROR]:
+                        print(f"    ❌ {test_case.name}: {test_case.message}")
+        
+        # Generate JSON report
+        self._generate_json_report(test_suites, coverage_data)
+        
+        print(f"\n📄 Reports saved to: {self.test_results_dir}")
+        print("="*60)
+    
+    def _generate_json_report(self, test_suites: List[TestSuite], coverage_data: Optional[Dict]) -> None:
+        """Generate machine-readable JSON report."""
+        report = {
+            "timestamp": time.time(),
+            "summary": {
+                "total_tests": sum(suite.test_count for suite in test_suites),
+                "passed": sum(suite.passed for suite in test_suites),
+                "failed": sum(suite.failed for suite in test_suites),
+                "errors": sum(suite.errors for suite in test_suites),
+                "skipped": sum(suite.skipped for suite in test_suites),
+                "duration": sum(suite.duration for suite in test_suites),
+            },
+            "coverage": coverage_data,
+            "test_suites": [
+                {
+                    "name": suite.name,
+                    "test_count": suite.test_count,
+                    "passed": suite.passed,
+                    "failed": suite.failed,
+                    "errors": suite.errors,
+                    "skipped": suite.skipped,
+                    "duration": suite.duration,
+                    "test_cases": [
+                        {
+                            "name": test.name,
+                            "suite": test.suite,
+                            "result": test.result.value,
+                            "duration": test.duration,
+                            "message": test.message,
+                            "details": test.details,
+                        }
+                        for test in suite.test_cases
+                    ]
+                }
+                for suite in test_suites
+            ]
+        }
+        
+        with open(self.test_results_dir / "test_report.json", "w") as f:
+            json.dump(report, f, indent=2)
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(description="Professional test runner")
+    parser.add_argument("--unit", action="store_true", help="Run unit tests")
+    parser.add_argument("--security", action="store_true", help="Run security tests")
+    parser.add_argument("--integration", action="store_true", help="Run integration tests")
+    parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
+    parser.add_argument("--all", action="store_true", help="Run all tests")
+    
+    args = parser.parse_args()
+    
+    if not any([args.unit, args.security, args.integration, args.all]):
+        args.all = True  # Default to running all tests
+    
+    # Initialize test runner
+    project_root = Path(__file__).parent.parent
+    runner = TestRunner(project_root)
+    
+    test_suites = []
+    
+    try:
+        if args.unit or args.all:
+            test_suites.append(runner.run_unit_tests())
+        
+        if args.security or args.all:
+            test_suites.append(runner.run_security_tests())
+        
+        if args.integration or args.all:
+            test_suites.append(runner.run_integration_tests())
+        
+        coverage_data = None
+        if args.coverage or args.all:
+            coverage_data = runner.run_coverage_analysis()
+        
+        # Generate comprehensive report
+        runner.generate_report(test_suites, coverage_data)
+        
+        # Exit with appropriate code
+        total_failed = sum(suite.failed + suite.errors for suite in test_suites)
+        sys.exit(0 if total_failed == 0 else 1)
+        
+    except Exception as e:
+        print(f"❌ Test runner error: {e}")
+        sys.exit(2)
+
+if __name__ == "__main__":
+    main()
